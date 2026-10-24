@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 深色磨砂 -->
+    <LinearGradientBrush x:Key="PanelBg" StartPoint="0,0" EndPoint="0.45,1">
+        <GradientStop Color="#6614161B" Offset="0" />
+        <GradientStop Color="#7E0B0C0F" Offset="1" />
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="Stroke"        Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="StrokeSoft"    Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="TextStrong"    Color="#F3F4F8" />
+    <SolidColorBrush x:Key="TextDim"       Color="#C9CBD5" />
+    <SolidColorBrush x:Key="TextFaint"     Color="#6E7079" />
+    <SolidColorBrush x:Key="PillHover"     Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="PillActive"    Color="#21FFFFFF" />
+    <SolidColorBrush x:Key="ItemHover"     Color="#16FFFFFF" />
+    <SolidColorBrush x:Key="Accent"        Color="#6C8CFF" />
+    <SolidColorBrush x:Key="ZoneBg" Color="#0DFFFFFF" />
+
+    <LinearGradientBrush x:Key="ZoneBorder" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#52FFFFFF" Offset="0" />
+        <GradientStop Color="#26FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="ItemSelected"  Color="#336C8CFF" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#406C8CFF" />
+    <SolidColorBrush x:Key="Divider"       Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="PanelTint"     Color="#0D000000" />
+    <SolidColorBrush x:Key="MenuBg"        Color="#F21A1B20" />
+    <SolidColorBrush x:Key="MenuHover"     Color="#40FFFFFF" />
+    <SolidColorBrush x:Key="ScrollThumb"   Color="#2EFFFFFF" />
+
+    <Color x:Key="BackdropTint">#CC1A1C22</Color>
+
+</ResourceDictionary>
