@@ -2,6 +2,8 @@
 
 **给 Windows 桌面做分区的极简小工具 —— 吸附在屏幕顶部，把快捷方式按类别归位。**
 
+> 🤖 本项目由 AI 辅助开发：需求与设计由作者主导，代码主要由 AI 生成。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-lightgrey)]()
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)]()
