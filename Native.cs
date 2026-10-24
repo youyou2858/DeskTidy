@@ -225,6 +225,32 @@ namespace DeskTidy
         [DllImport("user32.dll")]
         public static extern bool DestroyIcon(IntPtr hIcon);
 
+        public const int WM_ACTIVATEAPP = 0x001C;
+
+        public const uint SWP_NOSIZE_ = 0x0001;
+        public const uint SWP_NOMOVE_ = 0x0002;
+        public const uint SWP_NOACTIVATE_ = 0x0010;
+
+        [DllImport("user32.dll")]
+        public static extern int GetWindowLongW(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
+        public const uint GA_ROOT = 2;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+
         // ---------------- 显示器 ----------------
 
         [StructLayout(LayoutKind.Sequential)]

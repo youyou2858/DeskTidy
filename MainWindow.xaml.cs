@@ -1876,7 +1876,7 @@ namespace DeskTidy
         {
             SettingsStack.Children.Clear();
 
-            AddCheck("始终显示（显示桌面时也可见）", Topmost, () =>
+            AddCheck("常驻置顶（会盖住其他窗口）", Topmost, () =>
             {
                 Topmost = !Topmost;
                 _data.Window.Topmost = Topmost;

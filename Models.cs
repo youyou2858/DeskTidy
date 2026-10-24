@@ -117,7 +117,7 @@ namespace DeskTidy
         public double? Top { get; set; }
         public double Width { get; set; } = 620;
         public bool Snapped { get; set; } = true;
-        public bool Topmost { get; set; } = true;   // 默认置顶：Win+D 时才不会被桌面层盖住
+        public bool Topmost { get; set; } = false;  // 常驻置顶（默认关；Win+D 时会自动临时置顶）
         public bool AutoStart { get; set; } = false;
         /// <summary>0 = 跟随系统, 1 = 深色, 2 = 浅色</summary>
         public int Theme { get; set; } = 0;
