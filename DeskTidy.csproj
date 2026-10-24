@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>DeskTidy</AssemblyName>
+    <RootNamespace>DeskTidy</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Company>DeskTidy</Company>
+    <Product>DeskTidy 桌面分区整理</Product>
+    <Description>轻量的 Windows 桌面分区整理工具，支持磨砂玻璃外观与双向拖拽。</Description>
+    <Copyright>Copyright © 2026 DeskTidy</Copyright>
+    <AssemblyTitle>DeskTidy</AssemblyTitle>
+    <NeutralLanguage>zh-Hans</NeutralLanguage>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <StartupObject>DeskTidy.App</StartupObject>
+  </PropertyGroup>
+
+</Project>
