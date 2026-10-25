@@ -42,7 +42,10 @@ namespace DeskTidy
         }
 
         /// <summary>
-        /// The shell window that hosts the desktop icons - the one raised by "show desktop".
+        /// The desktop icon view itself (SHELLDLL_DefView), not the window that currently
+        /// owns it. "Show desktop" moves DefView into a freshly raised WorkerW, so a window
+        /// parented to Progman gets buried; a child of DefView travels with it and stays
+        /// visible either way.
         /// </summary>
         private static IntPtr FindDesktopHost()
         {
@@ -52,17 +55,20 @@ namespace DeskTidy
             {
                 var cls = ClassNameOf(h);
                 if (cls != "Progman" && cls != "WorkerW") return true;
-                if (Native.FindWindowExW(h, IntPtr.Zero, "SHELLDLL_DefView", null) == IntPtr.Zero)
-                    return true;
 
-                host = h;
+                IntPtr defView = Native.FindWindowExW(h, IntPtr.Zero, "SHELLDLL_DefView", null);
+                if (defView == IntPtr.Zero) return true;
+
+                host = defView;
                 return false;
             }, IntPtr.Zero);
 
             if (host != IntPtr.Zero) return host;
 
-            host = Native.FindWindowW("Progman", null);
-            return host != IntPtr.Zero ? host : Native.GetShellWindow();
+            IntPtr progman = Native.FindWindowW("Progman", null);
+            if (progman == IntPtr.Zero) return IntPtr.Zero;
+
+            return Native.FindWindowExW(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
         }
 
         private static string ClassNameOf(IntPtr hwnd)

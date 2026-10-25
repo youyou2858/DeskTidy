@@ -22,6 +22,12 @@
 
 ## 更新记录
 
+### 1.1.2
+
+| 改动 | 说明 |
+| --- | --- |
+| **修复「显示桌面」时面板看不见** | 1.1.1 把面板挂成 `Progman` 的子窗口，但「显示桌面」会把图标宿主 `SHELLDLL_DefView` 搬到一个新抬起的 `WorkerW` 里，面板就被压在下面。改成直接挂在 `SHELLDLL_DefView` 下面，它去哪面板就跟到哪 |
+
 ### 1.1.1
 
 | 改动 | 说明 |
@@ -38,10 +44,12 @@
 | **移除「常驻置顶」** | 桌面挂件用不上这个选项，直接从设置里去掉 |
 | **单文件发布** | 不再需要和 `.dll` 放在一起 |
 
-> 关于「显示桌面时窗口留在桌面上」：关键是**不要做顶层窗口**。
-> 用 owner 指向桌面窗口能让它跟着桌面一起浮起来，但会让资源管理器误判显示桌面状态、Win+D 第二次失效；
-> 改成 `SetParent` 挂成桌面壁纸窗口（带 `SHELLDLL_DefView` 的 `WorkerW` / `Progman`）的子窗口后，
-> 它属于桌面自己的窗口组，系统开关完全感知不到它，两个效果就能同时成立。
+> 关于「显示桌面时窗口留在桌面上」：关键是**不要做顶层窗口**，而且**要挂对父窗口**。
+>
+> 1. 用 owner 指向桌面窗口能让它跟着浮起来，但资源管理器会误判显示桌面状态，Win+D 第二次失效；
+> 2. 改成 `SetParent` 挂成 `Progman` 的子窗口，Win+D 正常了，但「显示桌面」会把图标宿主
+>    `SHELLDLL_DefView` 搬进一个新抬起的 `WorkerW`，面板照样被盖住；
+> 3. 最终挂在 **`SHELLDLL_DefView` 本身**下面 —— 它被搬走时面板跟着走，两个效果才真正同时成立。
 
 ## 下载安装
 
@@ -118,7 +126,7 @@ DeskTidy/
 ├── TrayIcon.cs            原生托盘图标（Shell_NotifyIcon）
 ├── ShellMenu.cs           调用系统右键菜单
 ├── Frost.cs               壁纸模糊底图
-├── DesktopMode.cs         把窗口挂成桌面壁纸窗口的子窗口
+├── DesktopMode.cs         把窗口挂成桌面图标视图（SHELLDLL_DefView）的子窗口
 ├── IconCache.cs           图标提取与缓存
 ├── Shortcut.cs / Storage.cs / AutoStart.cs
 ├── Native.cs              Win32 P/Invoke
