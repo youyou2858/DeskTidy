@@ -60,20 +60,6 @@ namespace DeskTidy
                 }
             };
 
-            // 桌面模式：正在用它就浮到最上层；点桌面空白或切到别的窗口就沉回最下层
-            Activated += (s, e) => DesktopMode.Raise(new WindowInteropHelper(this).Handle);
-            Deactivated += (s, e) => DesktopMode.Sink(new WindowInteropHelper(this).Handle);
-
-            // 兜底：漏掉一次前台事件（比如"显示桌面"后又恢复）时，靠它把窗口收回最下层
-            var layerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            layerTimer.Tick += (s, e) =>
-            {
-                var h = new WindowInteropHelper(this).Handle;
-                if (h == IntPtr.Zero) return;
-                if (Native.GetForegroundWindow() == h) return;
-                DesktopMode.Sink(h);
-            };
-            layerTimer.Start();
             Loaded += (s, e) =>
             {
                 ApplyBackdrop();
@@ -369,6 +355,36 @@ namespace DeskTidy
         /// 约束的是"可见面板"而不是窗口矩形 —— 窗口四周有 ShadowPad 的投影留白，
         /// 所以面板可以真正贴到屏幕边沿，而透明阴影溢出去也无所谓。
         /// </summary>
+        /// <summary>
+        /// 把窗口移动到指定的 DIP 坐标并夹在屏幕内。
+        /// 挂到桌面窗口下面之后是子窗口，WPF 的 Left/Top 不再生效，只能走 SetWindowPos。
+        /// </summary>
+        private void MoveWindowTo(double left, double top)
+        {
+            Rect b = CurrentScreenBounds();
+            double minLeft = b.Left - ShadowPad;
+            double maxLeft = b.Right - Width + ShadowPad;
+            double minTop = b.Top - ShadowPad;
+            double maxTop = b.Bottom - Height + ShadowPad;
+
+            left = maxLeft <= minLeft ? minLeft : Math.Max(minLeft, Math.Min(maxLeft, left));
+            top = maxTop <= minTop ? minTop : Math.Max(minTop, Math.Min(maxTop, top));
+
+            var hwnd = new WindowInteropHelper(this).Handle;
+            var src = PresentationSource.FromVisual(this);
+
+            if (hwnd != IntPtr.Zero && Native.GetParent(hwnd) != IntPtr.Zero && src?.CompositionTarget != null)
+            {
+                Point dev = src.CompositionTarget.TransformToDevice.Transform(new Point(left, top));
+                Native.SetWindowPos(hwnd, IntPtr.Zero, (int)Math.Round(dev.X), (int)Math.Round(dev.Y),
+                    0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+                return;
+            }
+
+            Left = left;
+            Top = top;
+        }
+
         private void ClampToScreen()
         {
             Rect b = CurrentScreenBounds();
@@ -418,9 +434,7 @@ namespace DeskTidy
                 if (!Native.GetCursorPos(out Native.POINT pt)) return;
 
                 Point screenDip = ToDip(new Point(pt.X, pt.Y));
-                Left = screenDip.X - _dragGrab.X;
-                Top = screenDip.Y - _dragGrab.Y;
-                ClampToScreen();
+                MoveWindowTo(screenDip.X - _dragGrab.X, screenDip.Y - _dragGrab.Y);
             }
             catch { }
         }
@@ -2200,7 +2214,7 @@ namespace DeskTidy
             Show();
             if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
             Activate();
-            Topmost = _data.Window.Topmost;
+            Topmost = false;
         }
 
         public void SnapToTopPublic()
