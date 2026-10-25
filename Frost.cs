@@ -20,6 +20,16 @@ namespace DeskTidy
         public static int ScreenW { get; private set; }
         public static int ScreenH { get; private set; }
 
+        /// <summary>
+        /// Drop the cached wallpaper blur so the next GetBlurred() re-reads it.
+        /// Called when the desktop wallpaper changes.
+        /// </summary>
+        public static void Reset()
+        {
+            _tried = false;
+            _blurred = null;
+        }
+
         public static BitmapSource GetBlurred()
         {
             if (_tried) return _blurred;

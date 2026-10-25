@@ -20,13 +20,7 @@ namespace DeskTidy
                 }
                 catch { }
 
-                try
-                {
-                    var m = System.Reflection.Assembly.GetEntryAssembly();
-                    if (m != null) return m.Location;
-                }
-                catch { }
-
+                // 单文件发布时 Assembly.Location 是空串，直接用进程目录兜底
                 return Path.Combine(AppContext.BaseDirectory, "DeskTidy.exe");
             }
         }

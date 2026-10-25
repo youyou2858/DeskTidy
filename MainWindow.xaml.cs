@@ -54,8 +54,26 @@ namespace DeskTidy
                 ApplyBackdrop();
 
                 if (PresentationSource.FromVisual(this) is HwndSource src)
+                {
                     src.AddHook(WndProc);
+                    DesktopMode.Attach(src.Handle);
+                }
             };
+
+            // 桌面模式：正在用它就浮到最上层；点桌面空白或切到别的窗口就沉回最下层
+            Activated += (s, e) => DesktopMode.Raise(new WindowInteropHelper(this).Handle);
+            Deactivated += (s, e) => DesktopMode.Sink(new WindowInteropHelper(this).Handle);
+
+            // 兜底：漏掉一次前台事件（比如"显示桌面"后又恢复）时，靠它把窗口收回最下层
+            var layerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            layerTimer.Tick += (s, e) =>
+            {
+                var h = new WindowInteropHelper(this).Handle;
+                if (h == IntPtr.Zero) return;
+                if (Native.GetForegroundWindow() == h) return;
+                DesktopMode.Sink(h);
+            };
+            layerTimer.Start();
             Loaded += (s, e) =>
             {
                 ApplyBackdrop();
@@ -259,7 +277,8 @@ namespace DeskTidy
         {
             Width = Math.Max(MinPanelWidth, _data.Window.Width) + ShadowPad * 2;
             Height = CollapsedHeight + ShadowPad * 2;
-            Topmost = _data.Window.Topmost;
+            // 桌面模式下窗口恒定在最下层，置顶选项已移除
+            Topmost = false;
 
             if (_data.Window.Left == null || _data.Window.Top == null)
             {
@@ -478,7 +497,12 @@ namespace DeskTidy
         // ---------- 分区拖动排序（三点手柄） ----------
 
         private Zone _dragZone;
-        private Point _zoneDragStart;
+        private UIElement _dragVisual;
+        private double? _dragGrabOffset;
+        private double[] _slotX;
+        private double[] _slotW;
+        private double _slotMin;
+        private double _slotMax;
 
         private void ZoneHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -486,7 +510,10 @@ namespace DeskTidy
             if (zone == null) return;
 
             _dragZone = zone;
-            _zoneDragStart = e.GetPosition(ZonesHost);
+            _dragVisual = null;
+            _dragGrabOffset = null;
+            CaptureSlots();
+
             (sender as FrameworkElement)?.CaptureMouse();
 
             // 抬到最上层，滑动时不被相邻分区盖住
@@ -499,31 +526,116 @@ namespace DeskTidy
         {
             if (_dragZone == null || e.LeftButton != MouseButtonState.Pressed) return;
 
+            var container = ZonesHost.ItemContainerGenerator.ContainerFromItem(_dragZone) as FrameworkElement;
+            if (container == null) return;
+
+            if (_dragVisual == null || !IsInside(_dragVisual, container))
+            {
+                _dragVisual = FirstVisualChild(container);
+                _dragGrabOffset = null;
+            }
+
+            if (_dragVisual == null) return;
+
+            // 换位动画也会给这个容器加位移，叠加到我们的偏移上就会抖，先清掉
+            container.RenderTransform = null;
+
             Point p = e.GetPosition(ZonesHost);
-            double delta = p.X - _zoneDragStart.X;
+            double slotX = container.TranslatePoint(new Point(0, 0), ZonesHost).X;
+
+            if (!_dragGrabOffset.HasValue) _dragGrabOffset = p.X - slotX;
+
+            double desired = p.X - _dragGrabOffset.Value;
+            if (desired < _slotMin) desired = _slotMin;
+            if (desired > _slotMax) desired = _slotMax;
 
             int current = _data.Zones.IndexOf(_dragZone);
             if (current < 0) return;
 
-            // 按"位移是否越过相邻分区宽度的一半"来判断，交换后立刻重置基准，
-            // 这样不会因为分区换位后鼠标又落回原区域而反复来回
-            int target = current;
-
-            if (delta > 0 && current < _data.Zones.Count - 1)
-            {
-                if (delta > GetZoneWidth(current + 1) * 0.55) target = current + 1;
-            }
-            else if (delta < 0 && current > 0)
-            {
-                if (-delta > GetZoneWidth(current - 1) * 0.55) target = current - 1;
-            }
-
+            int target = EdgeTarget(current, desired, container.ActualWidth);
             if (target != current)
             {
                 MoveZoneAnimated(current, target);
                 SaveData();
-                _zoneDragStart = p; // 重置基准
+
+                container.RenderTransform = null;
+                slotX = container.TranslatePoint(new Point(0, 0), ZonesHost).X;
             }
+
+            double offset = desired - slotX;
+            if (_dragVisual.RenderTransform is TranslateTransform tt) tt.X = offset;
+            else _dragVisual.RenderTransform = new TranslateTransform(offset, 0);
+        }
+
+        /// <summary>
+        /// 换位判定按「边缘对齐」：向右拖时，胶囊右边缘接近下一个的右边缘就换位；
+        /// 向左拖时按左边缘镜像处理。这样分区宽窄不一时换位点也一致。
+        /// </summary>
+        private int EdgeTarget(int index, double desired, double width)
+        {
+            if (_slotX == null || index < 0 || index >= _slotX.Length) return index;
+
+            const double gap = 0.2;
+
+            if (index < _slotX.Length - 1)
+            {
+                double nextRight = _slotX[index + 1] + _slotW[index + 1];
+                if (desired + width >= nextRight - _slotW[index + 1] * gap) return index + 1;
+            }
+
+            if (index > 0)
+            {
+                if (desired <= _slotX[index - 1] + _slotW[index - 1] * gap) return index - 1;
+            }
+
+            return index;
+        }
+
+        /// <summary>拖动开始时采样一次槽位几何，此时还没有任何变换。</summary>
+        private void CaptureSlots()
+        {
+            int count = _data.Zones.Count;
+            _slotX = new double[count];
+            _slotW = new double[count];
+
+            double min = double.MaxValue;
+            double max = double.MinValue;
+
+            for (int i = 0; i < count; i++)
+            {
+                var cp = ZonesHost.ItemContainerGenerator.ContainerFromIndex(i) as FrameworkElement;
+                if (cp == null) continue;
+
+                double x = cp.TranslatePoint(new Point(0, 0), ZonesHost).X;
+                _slotX[i] = x;
+                _slotW[i] = cp.ActualWidth;
+
+                if (x < min) min = x;
+                if (x > max) max = x;
+            }
+
+            _slotMin = min == double.MaxValue ? 0 : min;
+            _slotMax = max == double.MinValue ? 0 : max;
+        }
+
+        private static UIElement FirstVisualChild(DependencyObject parent)
+        {
+            return System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent) == 0
+                ? null
+                : System.Windows.Media.VisualTreeHelper.GetChild(parent, 0) as UIElement;
+        }
+
+        private static bool IsInside(UIElement visual, DependencyObject parent)
+        {
+            DependencyObject cur = visual;
+            while (cur != null)
+            {
+                var up = System.Windows.Media.VisualTreeHelper.GetParent(cur);
+                if (up == null) return false;
+                if (up == parent) return true;
+                cur = up;
+            }
+            return false;
         }
 
         private double GetZoneWidth(int index)
@@ -538,6 +650,12 @@ namespace DeskTidy
 
             try { (sender as FrameworkElement)?.ReleaseMouseCapture(); } catch { }
             _dragZone = null;
+
+            try { if (_dragVisual != null) _dragVisual.RenderTransform = null; } catch { }
+            _dragVisual = null;
+            _dragGrabOffset = null;
+            _slotX = null;
+            _slotW = null;
 
             // 恢复层级 + 清掉残留位移
             for (int i = 0; i < _data.Zones.Count; i++)
@@ -1145,16 +1263,6 @@ namespace DeskTidy
                         changed = true;
                     }
 
-                    // 2) Win10/11 的"显示桌面"会把桌面层(WorkerW)提到最前、把其他窗口压到底部。
-                    //    只改成 HWND_TOP 不够 —— 桌面层仍在上面。必须提到 TOPMOST，
-                    //    窗口才会浮在"显示桌面"之上。
-                    if (wp.hwndInsertAfter == Native.HWND_BOTTOM)
-                    {
-                        wp.hwndInsertAfter = Native.HWND_TOPMOST;
-                        wp.flags &= ~Native.SWP_NOZORDER;
-                        changed = true;
-                    }
-
                     if (changed)
                     {
                         Marshal.StructureToPtr(wp, lParam, false);
@@ -1168,6 +1276,14 @@ namespace DeskTidy
             if (msg == Native.WM_SYSCOMMAND && (wParam.ToInt32() & 0xFFF0) == Native.SC_MINIMIZE)
             {
                 handled = true;
+                return IntPtr.Zero;
+            }
+
+            // ---- 换壁纸后刷新磨砂底图 ----
+            if (msg == Native.WM_SETTINGCHANGE && wParam.ToInt32() == Native.SPI_SETDESKWALLPAPER)
+            {
+                Frost.Reset();
+                InitFrost();
                 return IntPtr.Zero;
             }
 
@@ -1875,13 +1991,6 @@ namespace DeskTidy
         private void BuildSettingsMenu()
         {
             SettingsStack.Children.Clear();
-
-            AddCheck("常驻置顶（会盖住其他窗口）", Topmost, () =>
-            {
-                Topmost = !Topmost;
-                _data.Window.Topmost = Topmost;
-                SavePrefs();
-            });
 
             AddAction("吸附到顶部居中", () => { SnapToTopCenter(true); SavePrefs(); });
 

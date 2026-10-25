@@ -357,5 +357,47 @@ namespace DeskTidy
         public const uint WDA_NONE = 0x00000000;
         public const uint WDA_MONITOR = 0x00000001;
         public const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
+        // ---------------- desktop layer ----------------
+
+        public const int GWLP_HWNDPARENT = -8;
+        public const int WS_EX_TOPMOST = 0x00000008;
+
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOACTIVATE = 0x0010;
+
+        public const int WM_SETTINGCHANGE = 0x001A;
+        public const int SPI_SETDESKWALLPAPER = 0x0014;
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr FindWindowW(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr FindWindowExW(IntPtr hWndParent, IntPtr hWndChildAfter,
+            string lpszClass, string lpszWindow);
+
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetShellWindow();
     }
 }

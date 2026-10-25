@@ -11,9 +11,9 @@
     <RootNamespace>DeskTidy</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Version>1.1.0</Version>
+    <FileVersion>1.1.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <Company>DeskTidy</Company>
     <Product>DeskTidy 桌面分区整理</Product>
     <Description>轻量的 Windows 桌面分区整理工具，支持磨砂玻璃外观与双向拖拽。</Description>
