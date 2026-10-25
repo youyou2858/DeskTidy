@@ -85,6 +85,8 @@ namespace DeskTidy
                 new MouseButtonEventHandler(TopBar_MouseLeftButtonUp), true);
 
             SettingsPanel.MouseLeave += (s2, e2) => ScheduleSettingsClose();
+            SettingsPopup.Closed += (s2, e2) => UpdateClickAway();
+            Closed += (s2, e2) => ClickAway.Disarm();
 
             // 点桌面或其他程序 → 窗口失焦：收起菜单，并取消图标选中
             Deactivated += (s2, e2) =>
@@ -1155,6 +1157,8 @@ namespace DeskTidy
             _dragItem = item;
             _dragStart = e.GetPosition(this);
             _internalDrop = false;
+
+            UpdateClickAway();
         }
 
         private void Item_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -1212,6 +1216,7 @@ namespace DeskTidy
 
             SelectInRect(new Rect(
                 Canvas.GetLeft(SelectionBox), Canvas.GetTop(SelectionBox), w, h));
+            UpdateClickAway();
         }
 
         private void SelectInRect(Rect rect)
@@ -1234,8 +1239,34 @@ namespace DeskTidy
 
         private void ClearSelection()
         {
-            if (_activeZone == null) return;
-            foreach (ZoneItem i in _activeZone.Items) i.IsSelected = false;
+            if (_activeZone != null)
+                foreach (ZoneItem i in _activeZone.Items) i.IsSelected = false;
+
+            UpdateClickAway();
+        }
+
+        // ---------- 点窗口外取消选中 ----------
+        //
+        // 面板挂在桌面图标视图下面（见 DesktopMode），永远是子窗口、从不成为前台窗口，
+        // 所以 WPF 的 Deactivated 不会触发。点桌面空白只能靠低级鼠标钩子感知。
+        // 钩子只在「有选中项」或「设置弹层打开」时挂上，用完立刻摘掉，不是轮询。
+
+        private void UpdateClickAway()
+        {
+            if (SettingsPopup.IsOpen || HasSelection())
+            {
+                if (!ClickAway.IsArmed) ClickAway.Arm(OnClickOutside);
+            }
+            else if (ClickAway.IsArmed)
+            {
+                ClickAway.Disarm();
+            }
+        }
+
+        private void OnClickOutside()
+        {
+            if (SettingsPopup.IsOpen) SettingsPopup.IsOpen = false;
+            ClearSelection();
         }
 
         private static ZoneItem FindItemSource(DependencyObject d)
@@ -1333,6 +1364,7 @@ namespace DeskTidy
                     if ((Native.GetKeyState(VK_CONTROL) & 0x8000) != 0 && _activeZone != null)
                     {
                         foreach (ZoneItem it in _activeZone.Items) it.IsSelected = true;
+                        UpdateClickAway();
                         handled = true;
                     }
                     break;
@@ -1996,6 +2028,7 @@ namespace DeskTidy
 
             BuildSettingsMenu();
             SettingsPopup.IsOpen = true;
+            UpdateClickAway();
         }
 
         /// <summary>
