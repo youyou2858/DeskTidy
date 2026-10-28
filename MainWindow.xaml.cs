@@ -1682,16 +1682,32 @@ namespace DeskTidy
                 ScheduleDragTempClean();
             }
 
-            // 只有「真的被搬走」才从分区移除，要同时满足两个条件：
-            //   1. 目标返回 Move（而不是 Copy）；
-            //   2. 鼠标下面是文件管理器（桌面或资源管理器窗口）。
+            // ---- 判断「文件是不是真的被搬走了」----
             //
-            // 只看 effect 不够稳：聊天软件、下载工具、邮件客户端返回什么全看它自己怎么实现，
-            // 万一某个程序回了 Move，分区里的图标和托管文件就白白没了。
-            // 加上「目标必须是 explorer」这道判断后，拖给微信 / QQ / 浏览器一律只算「发一份」，
-            // 不管它们回什么效果，文件都留在分区里。
-            if (!_internalDrop && effect == DragDropEffects.Move && IsFileManagerUnderCursor())
+            // 资源管理器（Windows Shell）的做法是读「回执」，不是听目标的口头承诺：
+            // DoDragDrop 返回的 effect 只表示「目标愿意接受」，不等于「它真的做了」。
+            // 目标在完成操作后会往数据对象里写 CFSTR_PERFORMEDDROPEFFECT，
+            // 源读到这个标记才敢删自己的源文件。
+            //
+            // WPF 的 DataObject 拿不到那个 COM 格式，但我们有个等价的物理信号：
+            // 拖出去的是一份临时副本。目标真的「移走」了它，副本就不在 DragTemp 里了；
+            // 只是复制一份的话，副本还老老实实待在那儿。
+            bool payloadWasMoved = !File.Exists(payload) && !Directory.Exists(payload);
+
+            // 三道都过了才算「搬出分区」：
+            //   1. 目标返回 Move（按 Ctrl 拖拽时 Explorer 会返回 Copy，正好符合它的习惯语义）；
+            //   2. 临时副本确实不在了 —— 这是「回执」；
+            //   3. 鼠标下面是文件管理器 —— 拖给微信 / QQ / 浏览器一律只算「发一份」。
+            //
+            // 第 3 条是保守兜底：目标程序返回什么效果全看它自己怎么实现，
+            // 万一某个程序回了 Move 却只是复制，前两条可能误判，进程判断能挡住。
+            if (!_internalDrop
+                && effect == DragDropEffects.Move
+                && payloadWasMoved
+                && IsFileManagerUnderCursor())
+            {
                 RemoveItem(item, true);
+            }
 
             _internalDrop = false;
         }
