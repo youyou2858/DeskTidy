@@ -1682,13 +1682,49 @@ namespace DeskTidy
                 ScheduleDragTempClean();
             }
 
-            // 只有目标真的把文件「移走」了，才算搬出分区。
-            // 拖到微信 / QQ / 浏览器这类程序返回的是 Copy —— 那是「发一份出去」，
-            // 分区里的图标和托管文件都该留着，否则用户发完文件发现原文件没了。
-            if (!_internalDrop && effect == DragDropEffects.Move)
+            // 只有「真的被搬走」才从分区移除，要同时满足两个条件：
+            //   1. 目标返回 Move（而不是 Copy）；
+            //   2. 鼠标下面是文件管理器（桌面或资源管理器窗口）。
+            //
+            // 只看 effect 不够稳：聊天软件、下载工具、邮件客户端返回什么全看它自己怎么实现，
+            // 万一某个程序回了 Move，分区里的图标和托管文件就白白没了。
+            // 加上「目标必须是 explorer」这道判断后，拖给微信 / QQ / 浏览器一律只算「发一份」，
+            // 不管它们回什么效果，文件都留在分区里。
+            if (!_internalDrop && effect == DragDropEffects.Move && IsFileManagerUnderCursor())
                 RemoveItem(item, true);
 
             _internalDrop = false;
+        }
+
+        /// <summary>
+        /// 拖放结束时，鼠标下面的窗口是否属于文件管理器（explorer.exe）。
+        ///
+        /// 只有拖到桌面或资源管理器窗口，才意味着「把文件搬出分区」；
+        /// 拖到聊天软件、邮件客户端、浏览器这些程序，都是「发一份出去」，
+        /// 分区里的图标和托管文件都应该留着。
+        /// </summary>
+        private static bool IsFileManagerUnderCursor()
+        {
+            try
+            {
+                Native.POINT pt;
+                if (!Native.GetCursorPos(out pt)) return false;
+
+                IntPtr hwnd = Native.WindowFromPoint(pt);
+                if (hwnd == IntPtr.Zero) return false;
+
+                uint pid;
+                Native.GetWindowThreadProcessId(hwnd, out pid);
+                if (pid == 0) return false;
+
+                using (var proc = System.Diagnostics.Process.GetProcessById((int)pid))
+                    return string.Equals(proc.ProcessName, "explorer", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // 查不到就当作「不是文件管理器」——宁可保留文件，也不要误删
+                return false;
+            }
         }
 
         /// <summary>
