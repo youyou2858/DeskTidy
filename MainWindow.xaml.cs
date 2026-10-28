@@ -33,6 +33,7 @@ namespace DeskTidy
         private readonly AppData _data;
         private Zone _activeZone;
         private ZoneItem _dragItem;
+        private DispatcherTimer _dragTempCleanTimer;
         private Point _dragStart;
         private bool _internalDrop;
         private bool _closingForReal;
@@ -1674,11 +1675,17 @@ namespace DeskTidy
             {
                 item.IsDragSource = false;
                 HideDropLine();
-                Storage.CleanDragTemp();
+
+                // 这里刻意不立即清理 DragTemp：微信 / QQ / 浏览器收到拖拽路径后往往是
+                // 异步读取的（有的还会先弹确认框），拖放一结束就把文件删掉，
+                // 它们再去读就会报「文件不存在或已经被删除」。
+                ScheduleDragTempClean();
             }
 
-            // 拖到窗口外并成功放下 → 视为"搬出分区"
-            if (!_internalDrop && effect != DragDropEffects.None)
+            // 只有目标真的把文件「移走」了，才算搬出分区。
+            // 拖到微信 / QQ / 浏览器这类程序返回的是 Copy —— 那是「发一份出去」，
+            // 分区里的图标和托管文件都该留着，否则用户发完文件发现原文件没了。
+            if (!_internalDrop && effect == DragDropEffects.Move)
                 RemoveItem(item, true);
 
             _internalDrop = false;
@@ -1721,6 +1728,27 @@ namespace DeskTidy
                 return null;
             }
             catch { return null; }
+        }
+
+        /// <summary>
+        /// 拖放结束后延迟清理临时副本。
+        /// 给外部程序留出读取时间，同时又不让临时文件长期占着磁盘。
+        /// 每次新的拖拽都会重置这个计时，所以「正在拖的那一份」始终是安全的。
+        /// </summary>
+        private void ScheduleDragTempClean()
+        {
+            if (_dragTempCleanTimer == null)
+            {
+                _dragTempCleanTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+                _dragTempCleanTimer.Tick += (s2, e2) =>
+                {
+                    _dragTempCleanTimer.Stop();
+                    Storage.CleanDragTemp();
+                };
+            }
+
+            _dragTempCleanTimer.Stop();
+            _dragTempCleanTimer.Start();
         }
 
         private static string SafeFileName(string name)
